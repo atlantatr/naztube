@@ -1,5 +1,7 @@
 package com.naztube.app
 
+import android.view.ViewGroup
+import android.widget.Toast
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
