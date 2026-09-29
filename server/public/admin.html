@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Naz Tube Yönetim</title>
+  <style>
+    :root { color-scheme: dark; --bg:#121718; --surface:#1d282a; --line:#38484a; --accent:#28b9a7; --muted:#a8b8b9; }
+    * { box-sizing:border-box; } body { margin:0; background:var(--bg); color:#f4f7f7; font:16px system-ui,sans-serif; }
+    main { max-width:1120px; margin:auto; padding:32px 20px 64px; } h1 { margin:0 0 4px; } h2 { margin:0 0 16px; font-size:20px; }
+    .sub { color:var(--muted); margin:0 0 28px; } .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:20px; }
+    section { border:1px solid var(--line); background:var(--surface); padding:20px; border-radius:8px; } input, textarea, button { font:inherit; } input, textarea { width:100%; margin:6px 0 14px; padding:10px; color:inherit; border:1px solid var(--line); background:#111819; border-radius:5px; }
+    button { padding:9px 14px; background:var(--accent); color:#062522; border:0; border-radius:5px; font-weight:700; cursor:pointer; } button.secondary { background:#344447; color:white; } button.danger { background:#b95252; color:white; }
+    .hidden { display:none; } .row { display:flex; gap:10px; align-items:center; justify-content:space-between; padding:10px 0; border-top:1px solid var(--line); } .row:first-child { border-top:0; } .name { font-weight:650; } small { color:var(--muted); } label.check { display:flex; gap:8px; align-items:center; margin:8px 0; } label.check input { width:auto; margin:0; }
+  </style>
+</head>
+<body><main>
+  <h1>Naz Tube Yönetim</h1><p class="sub">Yasal video yükleme ve cihaz politikaları</p>
+  <section id="login"><h2>Giriş</h2><input id="password" type="password" placeholder="Yönetici parolası"><button onclick="login()">Giriş Yap</button></section>
+  <div id="panel" class="hidden"><div class="grid">
+    <section><h2>Video Yükle</h2><form id="uploadForm"><input name="title" placeholder="Video başlığı" required><input name="category" placeholder="Kategori" value="Videolar"><textarea name="description" placeholder="Kısa açıklama"></textarea><input name="video" type="file" accept="video/*" required><button>Sunucuya Yükle</button></form><small id="uploadState"></small></section>
+    <section><h2>Cihazlar</h2><div id="devices"></div></section>
+  </div><section style="margin-top:20px"><h2>Videolar</h2><div id="videos"></div></section></div>
+</main><script>
+let token = sessionStorage.token || "";
+const loginCard = document.getElementById('login');
+const panel = document.getElementById('panel');
+const passwordField = document.getElementById('password');
+const uploadForm = document.getElementById('uploadForm');
+const uploadState = document.getElementById('uploadState');
+const videos = document.getElementById('videos');
+const devices = document.getElementById('devices');
+const auth = () => ({ Authorization: `Bearer ${token}` });
+async function login(){ const r=await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:passwordField.value})}); if(!r.ok)return alert('Parola doğru değil.'); token=(await r.json()).token;sessionStorage.token=token; show(); }
+async function api(url, options={}){ const r=await fetch(url,{...options,headers:{...auth(),...(options.headers||{})}}); if(!r.ok)throw new Error(await r.text()); return r.status===204?null:r.json(); }
+async function show(){ loginCard.classList.add('hidden');panel.classList.remove('hidden'); await Promise.all([loadVideos(),loadDevices()]); }
+async function loadVideos(){ const items=await api('/api/admin/videos'); videos.innerHTML=items.length?items.map(v=>`<div class="row"><span><span class="name">${escape(v.title)}</span><br><small>${escape(v.category)}</small></span><button class="danger" onclick="removeVideo('${v.id}')">Sil</button></div>`).join(''):'<small>Henüz video yüklenmedi.</small>'; }
+async function removeVideo(id){ if(confirm('Video sunucudan silinsin mi?')){await api('/api/admin/videos/'+id,{method:'DELETE'});loadVideos();} }
+async function loadDevices(){ const items=await api('/api/admin/devices'); devices.innerHTML=items.length?items.map(d=>`<div class="row"><span><span class="name">${escape(d.name)}</span><br><small>${d.lastSeenAt||'Henüz bağlanmadı'}</small></span><button class="secondary" onclick='editPolicy(${JSON.stringify(d).replace(/'/g,"&#39;")})'>Politika</button></div>`).join(''):'<small>Henüz cihaz kaydolmadı.</small>'; }
+async function editPolicy(device){ const p=device.policy; const enabled=confirm('Uygulama açık kalsın mı? Tamam: açık, İptal: kapalı'); const playback=confirm('Video oynatma açık olsun mu?'); const lock=confirm('Cihazdaki uygulama hemen kilitlensin mi?'); const minutes=prompt('Günlük izleme limiti (0 = sınırsız):',p.maxDailyMinutes); const message=prompt('Cihazda gösterilecek mesaj:',p.message||''); await api('/api/admin/devices/'+device.id+'/policy',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({...p,enabled,playbackEnabled:playback,forceLock:lock,maxDailyMinutes:Number(minutes)||0,message:message||' '})});loadDevices(); }
+uploadForm.addEventListener('submit',async e=>{e.preventDefault();uploadState.textContent='Yükleniyor...';try{await api('/api/admin/videos',{method:'POST',body:new FormData(uploadForm)});uploadForm.reset();uploadState.textContent='Video eklendi.';loadVideos();}catch(e){uploadState.textContent='Yükleme başarısız.';}}); function escape(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));} if(token)show();
+</script></body></html>

@@ -1,0 +1,1 @@
+<resources><style name="Theme.NazTube" parent="Theme.Material3.DayNight.NoActionBar"><item name="android:fontFamily">sans</item><item name="android:colorAccent">#27B7A6</item><item name="android:navigationBarColor">#101516</item><item name="android:windowBackground">#101516</item></style></resources>
